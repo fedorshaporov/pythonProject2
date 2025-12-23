@@ -14,7 +14,6 @@ def calculate_greeting():
     else:
         return "Доброй ночи"
 
-
 def analyze_expenses(data, date_time):
     """Анализирует данные о транзакциях и возвращает нужные параметры."""
     start_date = datetime.strptime(date_time, '%Y-%m-%d %H:%M:%S').replace(day=1)
@@ -25,12 +24,13 @@ def analyze_expenses(data, date_time):
         (data['Дата операции'] <= end_date)
     ]
 
-    result = {}
+    result = {
+        "cards": [],
+        "top_transactions": []
+    }
 
     # Группируем по картам
     card_group = filtered_data.groupby('Номер карты')
-    result['cards'] = []
-
     for card, group in card_group:
         total_spent = group['Сумма операции'].sum()
         cashback = total_spent / 100.0
