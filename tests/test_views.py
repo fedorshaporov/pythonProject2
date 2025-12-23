@@ -1,7 +1,14 @@
 import pytest
 import json
-from src.views import generate_json_response
 import pandas as pd
+from unittest.mock import patch, MagicMock
+from src.views import (
+    get_currency_rates,
+    get_stock_prices,
+    calculate_greeting,
+    analyze_expenses,
+    generate_json_response
+)
 
 # Тестовые данные
 TEST_DATA = {
@@ -13,15 +20,7 @@ TEST_DATA = {
     "Описание": ["Колхоз", "Лента"]
 }
 
-
-@pytest.fixture
-def mock_excel_data(tmp_path):
-    """Создает временный Excel файл с тестовыми данными."""
-    df = pd.DataFrame(TEST_DATA)
-    test_file = tmp_path / "operations.xlsx"
-    df.to_excel(test_file, index=False)
-    return str(test_file)
-
+df = pd.DataFrame(TEST_DATA)
 
 @pytest.fixture
 def mock_user_settings(tmp_path):
@@ -35,44 +34,86 @@ def mock_user_settings(tmp_path):
         json.dump(user_settings, f)
     return str(settings_file)
 
+def test_get_currency_rates(mocker):
+    """Тест для функции get_currency_rates."""
+    mock_response = {
+        "Realtime Currency Exchange Rate": {
+            "5. Exchange Rate": "75.00"
+        }
+    }
+    mocker.patch('requests.get', return_value=MagicMock(json=lambda: mock_response))
 
-def test_generate_json_response(mock_excel_data, mock_user_settings, monkeypatch):
+    rates = get_currency_rates(["USD"])
+
+    assert rates["USD"] == 75.00
+
+def test_get_stock_prices(mocker):
+    """Тест для функции get_stock_prices."""
+    mock_response = {
+        "Time Series (Daily)": {
+            "2023-09-01": {"4. close": "150.00"},
+            "2023-09-02": {"4. close": "155.00"}
+        }
+    }
+    mocker.patch('requests.get', return_value=MagicMock(json=lambda: mock_response))
+
+    stocks = get_stock_prices(["AAPL"])
+
+    assert stocks["AAPL"] == 150.00
+
+def test_calculate_greeting(monkeypatch):
+    """Тест для функции calculate_greeting."""
+    monkeypatch.setattr("datetime.datetime", MagicMock(return_value=datetime(2023, 3, 20, 10, 0)))
+
+    greeting = calculate_greeting()
+    assert greeting == "Доброе утро"
+
+def test_analyze_expenses():
+    """Тест для функции analyze_expenses."""
+    # Преобразуем данные для использования в тестах
+    df_test = df.copy()
+    df_test['Дата операции'] = pd.to_datetime(df_test['Дата операции'])
+
+    result = analyze_expenses(df_test, "2020-05-05 12:00:00")
+
+    assert len(result['cards']) == 1
+    assert result['cards'][0]['last_digits'] == '7197'
+    assert result['cards'][0]['total_spent'] == -224.89
+    assert result['cards'][0]['cashback'] == -2.2489
+    assert len(result['top_transactions']) == 2  # Поскольку у нас 2 транзакции
+
+@patch('src.views.load_operations')
+@patch('src.views.get_currency_rates')
+@patch('src.views.get_stock_prices')
+def test_generate_json_response(mock_get_stock_prices, mock_get_currency_rates, mock_load_operations):
     """Тест для функции generate_json_response."""
-    # Заменяем путь к Excel файлу
-    monkeypatch.setattr("src.views.load_operations", lambda x: pd.read_excel(mock_excel_data))
+    # Установим моки
+    mock_load_operations.return_value = df.copy()
+    mock_get_currency_rates.return_value = {"USD": 75.0, "EUR": 83.0}
+    mock_get_stock_prices.return_value = {"AAPL": 150.0, "AMZN": 3000.0}
 
-    # Задаем входные данные
-    date_time = "2020-05-05 12:00:00"
+    # Сгенерируем JSON ответ
+    response = generate_json_response("2020-05-05 12:00:00")
 
-    # Получаем JSON-ответ
-    json_response = generate_json_response(date_time)
-
-    # Проверяем, что ответ не пустой
-    assert json_response is not None
-
-    # Проверяем структуру JSON
-    response_data = json.loads(json_response)
-
-    assert "greeting" in response_data
-    assert "cards" in response_data
-    assert "top_transactions" in response_data
-    assert "currency_rates" in response_data
-    assert "stock_prices" in response_data
+    # Проверяем структуру ответа
+    assert "greeting" in response
+    assert "cards" in response
+    assert "top_transactions" in response
+    assert "currency_rates" in response
+    assert "stock_prices" in response
 
     # Проверка содержимого
-    assert response_data["greeting"] in ["Доброе утро", "Добрый день", "Добрый вечер", "Доброй ночи"]
-    assert len(response_data["cards"]) == 1
-    assert response_data["cards"][0]["last_digits"] == "7197"
-    assert response_data["cards"][0]["total_spent"] == -224.89  # Сумма за два события
-    assert response_data["cards"][0]["cashback"] == -2.2489  # Кэшбэк для -224.89
-
-    # Проверяем, что возврат транзакций соответствует ожиданиям
-    assert len(response_data["top_transactions"]) == 1  # Топ-5 из двух, соответственно 1 в тесте
-
-    # Проверьте, что курсы валют и цены акций недоступны или корректны
-    assert isinstance(response_data["currency_rates"], list)
-    assert isinstance(response_data["stock_prices"], list)
-
+    assert len(response["cards"]) == 1
+    assert response["cards"][0]["last_digits"] == "7197"
+    assert len(response["top_transactions"]) == 2  # Должно быть 2 транзакции
+    assert response["currency_rates"] == [
+        {"currency": "USD", "rate": 75.0},
+        {"currency": "EUR", "rate": 83.0},
+    ]
+    assert response["stock_prices"] == [
+        {"stock": "AAPL", "price": 150.0},
+        {"stock": "AMZN", "price": 3000.0},
+    ]
 
 if __name__ == "__main__":
     pytest.main()

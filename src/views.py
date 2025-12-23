@@ -109,7 +109,7 @@ def generate_json_response(date_time):
     expense_analysis = analyze_expenses(data, date_time)
 
     # Загружаем пользовательские настройки
-    with open('user_settings.json', 'r') as f:
+    with open('../user_settings.json', 'r') as f:
         user_settings = json.load(f)
 
     # Получаем курсы валют и цены акций
