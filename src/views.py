@@ -4,7 +4,7 @@ import time
 
 import pandas as pd
 import requests
-from datetime import datetime
+import datetime
 from src.utils import load_operations  # Функция для загрузки операций
 
 API_KEY = 'JD0XXUZQH8WIG3Q8'
@@ -47,7 +47,7 @@ def get_stock_prices(stocks):
 
 def calculate_greeting():
     """Возвращает приветствие в зависимости от времени суток."""
-    hour = datetime.now().hour
+    hour = datetime.datetime.now().hour
     if 5 <= hour < 12:
         return "Доброе утро"
     elif 12 <= hour < 18:
@@ -60,14 +60,18 @@ def calculate_greeting():
 
 def analyze_expenses(data, date_time):
     """Анализирует данные о транзакциях и возвращает нужные параметры."""
-    start_date = datetime.strptime(date_time, '%Y-%m-%d %H:%M:%S').replace(day=1)
-    end_date = datetime.strptime(date_time, '%Y-%m-%d %H:%M:%S')
+
+    # Убедитесь, что даты преобразованы правильно
+    data['Дата операции'] = pd.to_datetime(data['Дата операции'])  # Без 'unit=s'
+
+    # Преобразуйте input date_time в datetime
+    start_date = datetime.datetime.strptime(date_time, '%Y-%m-%d %H:%M:%S').replace(day=1)
+    end_date = datetime.datetime.strptime(date_time, '%Y-%m-%d %H:%M:%S')
 
     filtered_data = data[
         (data['Дата операции'] >= start_date) &
         (data['Дата операции'] <= end_date)
     ]
-    filtered_data['Дата операции'] = pd.to_datetime(filtered_data['Дата операции'], unit='s').dt.strftime('%Y-%m-%d %H:%M:%S')
 
     result = {
         "cards": [],
@@ -79,7 +83,7 @@ def analyze_expenses(data, date_time):
     for card, group in card_group:
         total_spent = group['Сумма операции'].sum()
         cashback = total_spent / 100.0
-        last_digits = str(card)[-4:]
+        last_digits = str(card)[-4:]  # Извлечение последних 4 цифр
         result['cards'].append({
             'last_digits': last_digits,
             'total_spent': float(total_spent),
@@ -93,7 +97,40 @@ def analyze_expenses(data, date_time):
     return result
 
 
-def generate_json_response(date_time):
+# def generate_json_response(date_time):
+#     """Генерирует JSON-ответ с данными о расходах, курсах валют и ценах акций."""
+#     # Определяем базовую директорию проекта и путь к файлу
+#     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+#     file_path = os.path.join(base_dir, 'data', 'operations.xlsx')  # Создаем правильный путь
+#
+#     # Загрузка операций
+#     data = load_operations(file_path)
+#
+#     # Получение приветствия
+#     greeting = calculate_greeting()
+#
+#     # Анализируем расходы
+#     expense_analysis = analyze_expenses(data, date_time)
+#
+#     # Загружаем пользовательские настройки
+#     with open('../user_settings.json', 'r') as f:
+#         user_settings = json.load(f)
+#
+#     # Получаем курсы валют и цены акций
+#     currency_rates = get_currency_rates(user_settings['user_currencies'])
+#     stock_prices = get_stock_prices(user_settings['user_stocks'])
+#
+#     # Формируем окончательный ответ
+#     response = {
+#         "greeting": greeting,
+#         "cards": expense_analysis['cards'],
+#         "top_transactions": expense_analysis['top_transactions'],
+#         "currency_rates": [{"currency": currency, "rate": rate} for currency, rate in currency_rates.items()],
+#         "stock_prices": [{"stock": stock, "price": price} for stock, price in stock_prices.items()]
+#     }
+#
+#     return response
+def generate_json_response(date_time, settings_path):
     """Генерирует JSON-ответ с данными о расходах, курсах валют и ценах акций."""
     # Определяем базовую директорию проекта и путь к файлу
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -108,8 +145,8 @@ def generate_json_response(date_time):
     # Анализируем расходы
     expense_analysis = analyze_expenses(data, date_time)
 
-    # Загружаем пользовательские настройки
-    with open('../user_settings.json', 'r') as f:
+    # Загружаем пользовательские настройки из указанного пути
+    with open(settings_path, 'r') as f:
         user_settings = json.load(f)
 
     # Получаем курсы валют и цены акций
@@ -127,5 +164,6 @@ def generate_json_response(date_time):
 
     return response
 
-
-print(generate_json_response("2021-12-31 00:00:00"))
+# print(generate_json_response("2021-12-31 00:00:00"))
+# settings_path = '../user_settings.json'  # Или относительный путь к вашему файлу
+# print(generate_json_response("2021-12-31 00:00:00", settings_path))

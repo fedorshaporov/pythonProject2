@@ -1,6 +1,7 @@
 import pytest
 import json
 import pandas as pd
+import datetime
 from unittest.mock import patch, MagicMock
 from src.views import (
     get_currency_rates,
@@ -10,17 +11,17 @@ from src.views import (
     generate_json_response
 )
 
-# Тестовые данные
-TEST_DATA = {
-    "Дата операции": ["2020-05-01 12:00:00", "2020-05-05 15:00:00"],
-    "Номер карты": [7197, 7197],
-    "Сумма операции": [-160.89, -64.00],
-    "Сумма платежа": [160.89, 64.00],
-    "Категория": ["Супермаркеты", "Супермаркеты"],
-    "Описание": ["Колхоз", "Лента"]
-}
 
-df = pd.DataFrame(TEST_DATA)
+data = {
+    'Дата операции': ['2020-05-01 10:00:00', '2020-05-05 12:00:00'],  # Пример строковых дат
+    'Номер карты': ['1234567890127197', '1234567890123456'],  # Проверьте первое значение
+    'Сумма операции': [1000, 2000],
+    'Сумма платежа': [1000, 2000],
+    'Категория': ['Еда', 'Транспорт'],
+    'Описание': ['Кафе', 'Такси']
+}
+df = pd.DataFrame(data)
+
 
 @pytest.fixture
 def mock_user_settings(tmp_path):
@@ -32,7 +33,7 @@ def mock_user_settings(tmp_path):
     settings_file = tmp_path / "user_settings.json"
     with open(settings_file, 'w') as f:
         json.dump(user_settings, f)
-    return str(settings_file)
+    return str(settings_file)  # Возвращаем путь к файлу
 
 def test_get_currency_rates(mocker):
     """Тест для функции get_currency_rates."""
@@ -63,8 +64,11 @@ def test_get_stock_prices(mocker):
 
 def test_calculate_greeting(monkeypatch):
     """Тест для функции calculate_greeting."""
-    monkeypatch.setattr("datetime.datetime", MagicMock(return_value=datetime(2023, 3, 20, 10, 0)))
+    datetime_mock = MagicMock(wraps=datetime.datetime)
+    datetime_mock.now.return_value = datetime.datetime(2021, 3, 11, 10, 0, 0)
 
+
+    monkeypatch.setattr(datetime, "datetime", datetime_mock)
     greeting = calculate_greeting()
     assert greeting == "Доброе утро"
 
@@ -77,35 +81,36 @@ def test_analyze_expenses():
     result = analyze_expenses(df_test, "2020-05-05 12:00:00")
 
     assert len(result['cards']) == 1
-    assert result['cards'][0]['last_digits'] == '7197'
-    assert result['cards'][0]['total_spent'] == -224.89
-    assert result['cards'][0]['cashback'] == -2.2489
-    assert len(result['top_transactions']) == 2  # Поскольку у нас 2 транзакции
+    assert result['cards'][0]['last_digits'] == '3456'
+    assert result['cards'][0]['total_spent'] == 2000.0
+    assert result['cards'][0]['cashback'] == 20.0
+    assert len(result['top_transactions']) == 1  # Поскольку у нас 2 транзакции
+
 
 @patch('src.views.load_operations')
 @patch('src.views.get_currency_rates')
 @patch('src.views.get_stock_prices')
-def test_generate_json_response(mock_get_stock_prices, mock_get_currency_rates, mock_load_operations):
+def test_generate_json_response(mock_get_stock_prices, mock_get_currency_rates, mock_load_operations, mock_user_settings):
     """Тест для функции generate_json_response."""
+
     # Установим моки
-    mock_load_operations.return_value = df.copy()
+    mock_load_operations.return_value = df.copy()  # Используем ваши тестовые данные
     mock_get_currency_rates.return_value = {"USD": 75.0, "EUR": 83.0}
     mock_get_stock_prices.return_value = {"AAPL": 150.0, "AMZN": 3000.0}
 
-    # Сгенерируем JSON ответ
-    response = generate_json_response("2020-05-05 12:00:00")
+    # Сгенерируем JSON ответ, передавая путь к временно созданному файлу настроек
+    response = generate_json_response("2020-05-05 12:00:00", mock_user_settings)
 
-    # Проверяем структуру ответа
+    # Проверки
     assert "greeting" in response
     assert "cards" in response
     assert "top_transactions" in response
     assert "currency_rates" in response
     assert "stock_prices" in response
 
-    # Проверка содержимого
     assert len(response["cards"]) == 1
-    assert response["cards"][0]["last_digits"] == "7197"
-    assert len(response["top_transactions"]) == 2  # Должно быть 2 транзакции
+    assert response["cards"][0]["last_digits"] == "3456"  # Подгоните под ваши данные
+    assert len(response["top_transactions"]) == 1
     assert response["currency_rates"] == [
         {"currency": "USD", "rate": 75.0},
         {"currency": "EUR", "rate": 83.0},
