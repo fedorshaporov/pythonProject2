@@ -1,7 +1,7 @@
 [project]
 name = "pythonproject2"
 version = "0.1.0"
-description = ""
+description = "A project for analyzing transactions from an Excel file."
 authors = [
     {name = "fedor shaporov",email = "shaporovfed@gmail.com"}
 ]
@@ -16,10 +16,30 @@ dependencies = [
     "mock (>=5.2.0,<6.0.0)"
 ]
 
-
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+
+[tool.isort]
+line_length = 119
+multi_line_output = 3
+include_trailing_comma = true
+known_third_party = ["requests", "pandas"]
+default_section = "THIRD_PARTY"
+force_sort_within_sections = true
+
+[tool.black]
+line-length = 119
+exclude = ".git"
+
+
+
+
+[tool.mypy]
+disallow_untyped_defs = true
+warn_return_any = true
+
 
 [dependency-groups]
 lint = [

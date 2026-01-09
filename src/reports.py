@@ -1,4 +1,3 @@
-
 import pandas as pd
 import json
 import logging
@@ -8,6 +7,7 @@ from typing import Optional
 
 # Установка конфигурации для логирования
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
 
 def report_decorator(filename: Optional[str] = None):
     def decorator(func):
@@ -31,6 +31,7 @@ def report_decorator(filename: Optional[str] = None):
         return wrapper
     return decorator
 
+
 @report_decorator()
 def spending_by_category(transactions: pd.DataFrame, category: str, date: Optional[str] = None) -> pd.DataFrame:
     if date is None:
@@ -49,9 +50,10 @@ def spending_by_category(transactions: pd.DataFrame, category: str, date: Option
 
     return total_spending
 
+
 # Пример использования
 if __name__ == '__main__':
     transactions_df = pd.read_excel("../data/operations.xlsx")
-    #print(transactions_df)
+
     # Вызов функции с отчетом
     print(spending_by_category(transactions_df, category='Супермаркеты', date="2021-12-31"))
