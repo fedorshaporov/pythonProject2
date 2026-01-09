@@ -14,6 +14,7 @@ def calculate_greeting():
     else:
         return "Доброй ночи"
 
+
 def analyze_expenses(data, date_time):
     """Анализирует данные о транзакциях и возвращает нужные параметры."""
     start_date = datetime.strptime(date_time, '%Y-%m-%d %H:%M:%S').replace(day=1)

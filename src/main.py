@@ -1,6 +1,6 @@
-
 import os
 from src.views import generate_json_response
+
 
 def main():
     # Пример входящей даты
@@ -19,6 +19,7 @@ def main():
 
     # Выводим ответ
     print(json_response)
+
 
 if __name__ == '__main__':
     main()
